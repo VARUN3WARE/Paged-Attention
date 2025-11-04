@@ -10,11 +10,11 @@ This package implements block-based KV cache management with:
 
 __version__ = '0.1.0'
 
-from .paged_attention import PagedAttention
+from .paged_attention import PagedAttention, VanillaAttention
 from .kv_cache import PagedKVCache, BlockTableEntry
 from .allocator import BlockAllocator, PhysicalBlock
 from .scheduler import SimpleScheduler
-from .decoding import DecodingManager
+from .decoding import DecodingManager, ParallelSamplingManager
 from .swap_recompute import SwapManager, RecomputeManager
 from .utils import (
     generate_synthetic_workload,
@@ -25,12 +25,14 @@ from .utils import (
 
 __all__ = [
     'PagedAttention',
+    'VanillaAttention',
     'PagedKVCache',
     'BlockTableEntry',
     'BlockAllocator',
     'PhysicalBlock',
     'SimpleScheduler',
     'DecodingManager',
+    'ParallelSamplingManager',
     'SwapManager',
     'RecomputeManager',
     'generate_synthetic_workload',
