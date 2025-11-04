@@ -6,7 +6,9 @@ import pytest
 import torch
 
 import sys
-sys.path.insert(0, '../')
+import os
+# Ensure project root (one level up from tests/) is on sys.path so imports work
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from paged_attention import (
     PagedKVCache, BlockAllocator, 
