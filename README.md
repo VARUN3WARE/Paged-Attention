@@ -209,6 +209,41 @@ The smoke tests use the `--fast` and headless modes so they run quickly and with
 - [ ] Distributed inference support
 - [ ] Asynchronous swap pipeline
 
+Notes on CUDA kernels
+
+This repository includes a small CUDA kernel template under `paged_attention/cuda/` and a
+runtime wrapper `paged_attention/cuda_kernels.py` that will attempt to call a compiled
+extension named `_fused_kernels` if present, or fall back to a correct (but unoptimized)
+PyTorch implementation.
+
+To prototype a fused CUDA kernel locally (example):
+
+1. Implement device code in `paged_attention/cuda/fused_kernels.cu` and wrapper/dispatch
+   in `paged_attention/cuda/fused_kernels.cpp`.
+
+2. Build and load the extension from Python (example):
+
+```py
+from torch.utils.cpp_extension import load
+import os
+
+src_dir = os.path.join(os.path.dirname(__file__), 'cuda')
+ext = load(name='fused_kernels', sources=[
+   os.path.join(src_dir, 'fused_kernels.cpp'),
+   os.path.join(src_dir, 'fused_kernels.cu')
+])
+
+# then ext.fused_block_matmul(...) will be available
+```
+
+3. Once built, you can import the compiled module as `from paged_attention import _fused_kernels`
+   or rely on the `paged_attention.cuda_kernels` wrapper which will call the extension when present.
+
+If you'd like, I can implement a minimal working CUDA kernel here (requires CUDA toolchain and
+PyTorch C++ extension build). Tell me whether you want a full working kernel (I'll add build
+instructions, tests that skip when CUDA isn't present, and optional CI steps), or whether
+the current template + wrapper is sufficient for now.
+
 ## References
 
 - PagedAttention Paper: "Efficient Memory Management for Large Language Model Serving with PagedAttention"
