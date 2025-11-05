@@ -185,12 +185,10 @@ class PagedAttention(nn.Module):
             # K_block: [block_len, hidden_dim], V_block: [block_len, hidden_dim]
             block_len = K_block.shape[0]
             
-            # Project and split K, V for this block
-            K_proj = self.k_proj(K_block.unsqueeze(0))  # [1, block_len, hidden_dim]
-            V_proj = self.v_proj(V_block.unsqueeze(0))
-            
-            K_proj = self._split_heads(K_proj)  # [1, heads, block_len, head_dim]
-            V_proj = self._split_heads(V_proj)
+            # K_block and V_block are expected to be already-projected tensors
+            # of shape [block_len, hidden_dim]. Split heads directly.
+            K_proj = self._split_heads(K_block.unsqueeze(0))  # [1, heads, block_len, head_dim]
+            V_proj = self._split_heads(V_block.unsqueeze(0))
             
             # Expand to batch size
             K_proj = K_proj.expand(batch_size, -1, -1, -1)

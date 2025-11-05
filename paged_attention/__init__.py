@@ -20,6 +20,11 @@ from .utils import (
     generate_synthetic_workload,
     plot_memory_usage,
     plot_throughput,
+    plot_fragmentation,
+    plot_swap_vs_recompute,
+    plot_beam_search_memory,
+    print_stats_table,
+    create_causal_mask,
     compute_memory_metrics
 )
 
@@ -35,6 +40,10 @@ __all__ = [
     'ParallelSamplingManager',
     'SwapManager',
     'RecomputeManager',
+    'print_stats_table',
+    'create_causal_mask',
+    'plot_fragmentation',
+    'plot_swap_vs_recompute',
     'generate_synthetic_workload',
     'plot_memory_usage',
     'plot_throughput',
