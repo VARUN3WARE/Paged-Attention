@@ -1,20 +1,45 @@
-"""
-Run all benchmarks and generate comprehensive report.
+"""Run all benchmarks and generate comprehensive report.
+
+This script accepts a few CLI flags to support faster/headless runs for CI:
+  --outdir DIR     Save plots to DIR instead of showing them interactively
+  --headless       Use a non-interactive Matplotlib backend
+  --fast           Run a much smaller, faster workload (for smoke tests)
 """
 
+import argparse
 import sys
-sys.path.insert(0, '../')
+import os
+
+# Parse args early so we can set a headless backend before matplotlib imports
+parser = argparse.ArgumentParser()
+parser.add_argument('--outdir', type=str, default=None,
+                    help='Directory to save plots (if provided)')
+parser.add_argument('--headless', action='store_true',
+                    help='Run with non-interactive Matplotlib backend')
+parser.add_argument('--fast', action='store_true',
+                    help='Run a fast, reduced benchmark workload (smoke test)')
+args = parser.parse_args()
+
+if args.headless:
+    # Set MPL backend environment variable before matplotlib is imported anywhere
+    os.environ.setdefault('MPLBACKEND', 'Agg')
+
+# Ensure project root and benchmarks dir are on sys.path (file-relative)
+proj_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, proj_root)
 
 import torch
 import numpy as np
 from paged_attention import (
     plot_throughput,
     plot_fragmentation,
-    plot_swap_vs_recompute
+    plot_swap_vs_recompute,
+    plot_beam_search_memory
 )
 
-# Import benchmark functions
-sys.path.insert(0, '../benchmarks')
+# Import benchmark functions (make benchmarks dir importable)
+bench_dir = os.path.join(proj_root, 'benchmarks')
+sys.path.insert(0, bench_dir)
 from bench_basic_sampling import (
     benchmark_memory_usage,
     benchmark_throughput,
@@ -35,22 +60,36 @@ def main():
     
     torch.manual_seed(42)
     np.random.seed(42)
-    
+
     results = {}
-    
+
     # ===== Part 1: Basic Benchmarks =====
     print("\n" + "="*70)
     print("PART 1: Basic Performance Benchmarks")
     print("="*70 + "\n")
-    
+
+    # Use a much smaller workload when --fast is passed
+    if args.fast:
+        mem_num_sequences = 4
+        mem_mean_seq_len = 32
+        throughput_iters = 2
+        frag_num_sequences = 8
+        fragment_block_sizes = [8, 16]
+    else:
+        mem_num_sequences = 20
+        mem_mean_seq_len = 100
+        throughput_iters = 10
+        frag_num_sequences = 50
+        fragment_block_sizes = [8, 16, 32, 64]
+
     print("[1/6] Memory Usage Benchmark...")
     results['memory'] = benchmark_memory_usage(
-        num_sequences=20,
-        mean_seq_len=100,
+        num_sequences=mem_num_sequences,
+        mean_seq_len=mem_mean_seq_len,
         block_size=16,
         hidden_dim=512
     )
-    
+
     print("\n[2/6] Throughput Benchmark...")
     results['throughput'] = benchmark_throughput(
         batch_sizes=[1, 2, 4, 8],
@@ -58,14 +97,14 @@ def main():
         hidden_dim=512,
         num_heads=8,
         block_size=16,
-        num_iterations=10
+        num_iterations=throughput_iters
     )
-    
+
     print("\n[3/6] Fragmentation vs Block Size...")
     results['fragmentation'] = benchmark_fragmentation_vs_blocksize(
-        block_sizes=[8, 16, 32, 64],
-        num_sequences=50,
-        mean_seq_len=100,
+        block_sizes=fragment_block_sizes,
+        num_sequences=frag_num_sequences,
+        mean_seq_len=mem_mean_seq_len,
         hidden_dim=512
     )
     
@@ -155,18 +194,26 @@ def main():
     print("Generating additional plots...\n")
     
     # Plot throughput comparison
+    outdir = args.outdir
+    save_prefix = None
+    if outdir:
+        os.makedirs(outdir, exist_ok=True)
+        save_prefix = os.path.join(outdir, 'bench_')
+
     plot_throughput(
         throughput_data['batch_sizes'],
         throughput_data['naive_throughput'],
         throughput_data['paged_throughput'],
-        title="Throughput: Naive vs Paged"
+        title="Throughput: Naive vs Paged",
+        save_path=(save_prefix + 'throughput.png') if save_prefix else None
     )
     
     # Plot fragmentation
     plot_fragmentation(
         frag_data['block_sizes'],
         frag_data['fragmentation'],
-        title="Internal Fragmentation by Block Size"
+        title="Internal Fragmentation by Block Size",
+        save_path=(save_prefix + 'fragmentation.png') if save_prefix else None
     )
     
     print("\n" + "="*70)

@@ -4,7 +4,9 @@ Demo script: Shows basic PagedAttention functionality and correctness.
 
 import torch
 import sys
-sys.path.insert(0, '../')
+import os
+# Ensure project root is on sys.path (file-relative) so imports work when running the script
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from paged_attention import (
     PagedAttention, VanillaAttention,
