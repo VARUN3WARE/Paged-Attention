@@ -7,7 +7,9 @@ import torch
 import torch.nn.functional as F
 
 import sys
-sys.path.insert(0, '../')
+import os
+# Ensure project root (one level up from tests/) is on sys.path so imports work
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from paged_attention import (
     PagedAttention, VanillaAttention,
@@ -83,30 +85,35 @@ def test_blockwise_softmax():
     # Vanilla softmax
     vanilla_softmax = F.softmax(logits, dim=-1)
     
-    # Blockwise softmax (using running max/sum)
-    max_val = float('-inf')
-    sum_exp = 0.0
+    # Blockwise softmax (using running max/sum) - use tensors for numerics
+    device = logits.device
+    max_val = torch.tensor(float('-inf'), device=device)
+    sum_exp = torch.tensor(0.0, device=device)
     block_results = []
-    
+
     for i in range(num_blocks):
         start = i * block_size
         end = min(start + block_size, seq_len)
         block_logits = logits[:, start:end]
-        
+
         block_max = block_logits.max()
-        new_max = max(max_val, block_max.item())
-        
-        # Adjust previous sum
-        if max_val != float('-inf'):
-            sum_exp *= torch.exp(torch.tensor(max_val - new_max))
-        
-        # Current block exp
+        new_max = torch.maximum(max_val, block_max)
+
+        # If the running max increases, scale previous stored block exps
+        if not torch.isneginf(max_val).item():
+            # scale previous block exps to new_max
+            scale = torch.exp(max_val - new_max)
+            if scale != 1.0:
+                block_results = [br * scale for br in block_results]
+            sum_exp = sum_exp * scale
+
+        # Current block exp (with respect to new_max)
         block_exp = torch.exp(block_logits - new_max)
-        sum_exp += block_exp.sum().item()
-        
+        sum_exp = sum_exp + block_exp.sum()
+
         block_results.append(block_exp)
         max_val = new_max
-    
+
     # Normalize
     blockwise_softmax = torch.cat(block_results, dim=-1) / sum_exp
     
