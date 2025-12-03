@@ -2,6 +2,8 @@
 
 A from-scratch PyTorch implementation of PagedAttention and vLLM-like memory management for efficient KV cache handling in transformer inference.
 
+![..........](image.png)
+
 ## Overview
 
 This project implements the core ideas from the PagedAttention paper:
